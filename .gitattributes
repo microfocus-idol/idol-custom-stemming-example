@@ -1,0 +1,17 @@
+# Source files
+*.c text
+*.h text
+*.cpp text
+*.hpp text
+*.pl text
+*.py text
+*.txt text
+/*.xml text
+
+# CRLF files (Windows)
+*.sln text eol=crlf
+*.vcxproj text eol=crlf
+*.vcxproj.filters text eol=crlf
+*.props text eol=crlf
+*.bat text eol=crlf
+*.pyproj text eol=crlf
