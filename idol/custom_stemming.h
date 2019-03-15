@@ -9,7 +9,13 @@
 
 #include "stemming_types.h"
 
-#define CUSTOMSTEMMING_API_VERSION 1
+/*! Version 1:  First public version of the API.
+ *  Version 2:  Added flag members to t_customStemmingInfo and t_conceptStemmingResult.
+ *              Implemented "defer transliteration" and "can change first letter" flags.
+ */
+#define CUSTOMSTEMMING_API_VERSION 2
+
+#define customStemmingApiSupportsFlags(_v)  ((_v) >= 2)
 
 #define CUSTOMSTEMMING_INITIALIZE_FUNCTION   customStemmingInitialize
 #define CUSTOMSTEMMING_UNINITIALIZE_FUNCTION customStemmingUninitialize
@@ -30,7 +36,16 @@ typedef struct s_customStemmingInfo
     void*       pContext;           //!< May be set by the DLL to hold context data to be passed in on each subsequent call
     int         nVersion;           //!< Version of the custom stemming ABI used by the DLL (i.e. CUSTOMSTEMMING_API_VERSION)
     int         nMaxStems;          //!< Maximum number of stems that may be returned (0 indicates unknown at init time)
+
+    /*! Members below here only present for CUSTOMSTEMMING_API_VERSION >= 2 */
+
+    unsigned int nOptionFlags;      //!< Bitfield of flags DLL can toggle to affect stemming behaviour
+
 } t_customStemmingInfo;
+
+/*! Flag bits that may be set on nOptionFlags */
+#define CUSTOMSTEMMING_OPTIONS_DEFERTRANSLITERATION     0x01    //!< Application should apply transliteration after call to stemming library
+#define CUSTOMSTEMMING_OPTIONS_CANCHANGEFIRSTLETTER     0x02    //!< Hint that stemming rules may change the start of the input
 
 /*! Return value from custom stemming calls to indicate success/failure */
 typedef enum

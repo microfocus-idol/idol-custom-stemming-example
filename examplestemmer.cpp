@@ -9,7 +9,10 @@ Simple example IDOL custom stemming library
 // this is not an endorsement or recommendation of this implementation
 #include <stemming/english_stem.h>
 #include <stemming/french_stem.h>
+#include <stemming/spanish_stem.h>
 
+#include <codecvt>
+#include <locale>
 #include <memory>
 #include <string>
 
@@ -56,6 +59,22 @@ e_customStemmingError CUSTOMSTEMMING_INITIALIZE_FUNCTION(const t_customStemmingA
     {
         pInfo->pContext = new LangStemmer<stemming::french_stem<>>();
     }
+    else if (lang == "SPA")
+    {
+        pInfo->pContext = new LangStemmer<stemming::spanish_stem<>>();
+
+        /* certain Spanish rules depend on accents of the input; e.g.
+         *      sociolog&iacute;a -> SOCIOLOG
+         *      sociologia        -> SOCIOLOGI
+         * so set DEFERTRANSLITERATION flag, which will pass untransliterated
+         * input to the stemming function.
+         * If transliteration is configured, it  will be applied after stemming.
+         */
+        if (customStemmingApiSupportsFlags(pArgs->nVersion))
+        {
+            pInfo->nOptionFlags |= CUSTOMSTEMMING_OPTIONS_DEFERTRANSLITERATION;
+        }
+    }
     else
     {
         std::string err("Unsupported language");
@@ -100,18 +119,23 @@ e_customStemmingError CUSTOMSTEMMING_STEMTERM_FUNCTION(void * pContext, const ch
         return CUSTOMSTEMMING_ERROR_SUCCESS;
     }
 
-    wchar_t workspace[1024];
-    size_t len = std::mbstowcs(workspace, szUnstemmed, 1024);
-    if (static_cast<std::size_t>(-1) == len)
+    std::wstring_convert<std::codecvt_utf8<wchar_t>> convertor;
+    try
+    {
+        std::wstring word = convertor.from_bytes(szUnstemmed);
+        (static_cast<Stemmer*>(pContext))->stem(word);
+        std::string stem = convertor.to_bytes(word);
+        std::strncpy(pResult->aszStems[pResult->nStems++], stem.c_str(), pResult->nStemMaxLength);
+    }
+    catch (std::range_error &e)
+    {
+        return CUSTOMSTEMMING_ERROR_BADENCODING;
+    }
+    catch (std::exception &e)
+    {
         return CUSTOMSTEMMING_ERROR_FAILURE;
+    }
 
-    workspace[len] = 0;
-
-    std::wstring word(workspace);
-    (static_cast<Stemmer*>(pContext))->stem(word);
-
-    std::wcstombs(pResult->aszStems[0], word.data(), pResult->nStemMaxLength);
-    pResult->nStems++;
     return CUSTOMSTEMMING_ERROR_SUCCESS;
 }
 
