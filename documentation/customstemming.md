@@ -85,8 +85,21 @@ Custom stemming libraries **MUST** define this function.
     * `->pContext` An opaque pointer that is passed into subsequent calls to the library.
     * `->nVersion` The version of the interface API used by the DLL (that is, set this to `CUSTOMSTEMMING_API_VERSION`).
     * `->nMaxStems` The maximum number of stems that might be returned (0 indicates unknown at initialization time).
+    * `->nOptionFlags` _(API version 2 or later)_ Set flag bits to control various aspects of stemming behaviour (see below).
 * `pszErr` Can hold a pointer to an error string on exit.
 
+##### Option flags
+
+From API version 2 onwards, the library can set flag bits in `pInfo->nOptionFlags` to give more information about 
+its behaviour and control how it will be called by the external application.
+
+* `CUSTOMSTEMMING_OPTIONS_DEFERTRANSLITERATION` If set, the library will receive untransliterated terms as input.
+    The stems it returns will then have the configured transliteration processes for the language applied,
+    unless overridden at stemming time (see below).
+* `CUSTOMSTEMMING_OPTIONS_CANCHANGEFIRSTLETTER` Indicates the stemming algorithm may change the first letter of terms.
+    This acts as a hint to applications that may be able to optimise their performance if stems are known to begin with 
+    the same letter as the original word.
+    
 #### On exit
 
 Return `CUSTOMSTEMMING_ERROR_SUCCESS` to indicate successful initialization. Otherwise, return an error code and, 
@@ -134,13 +147,28 @@ Custom stemming libraries **MUST** define this function.
         _Do not modify this value in the library_.
     * `->nStemMaxLength` The allocated size of each aszStems[n] (that is, the maximum stem length).
         _Do not modify this value in the library_.
+    * `->anStemFlags` _(API version 2 or later)_ An array of flag words that may be used to return additional information 
+        about each stem. (This array is the same length as `aszStems`.)
 * `pszErr` Can hold a pointer to an error string on exit.
 
 The input string `szUnstemmed` is uppercased by the application. Terms that contain any numeric or 
-wildcard characters are not stemmed, so these characters should not be expected in the input. Stemming is 
-called after any transliteration has been performed, so `szUnstemmed` will have been transliterated, if 
-transliteration is configured for that language. If you need greater control over transliteration, you can 
-disable it in the IDOL configuration and apply your own rules in the stemming library.
+wildcard characters are not stemmed, so these characters should not be expected in the input.
+
+##### Stem flags
+
+From API version 2 onwards, the `pResult->anStemFlags` can be used to return additional information about the stemming results.
+Each entry in `anStemFlags` gives information about the corresponding entry in the `aszStems` array.
+
+* `CONCEPTSTEMMINGRESULT_FLAG_NODEFERREDTRANSLITERATION` If deferred transliteration is active, set this flag to indicate this
+    stem should *not* have transliteration applied by the application.
+
+Stemming is usually called after any transliteration has been performed, that is, `szUnstemmed` will have been transliterated on entry.
+If the library needs the untransliterated term in order to stem correctly, it can set the `CUSTOMSTEMMING_OPTIONS_DEFERTRANSLITERATION` 
+flag during initialization to indicate `szUnstemmed` should be passed in untransliterated. Transliteration (if configured for that language) is then usually applied after stemming, but this can be disabled completely for a particular stem by setting `CONCEPTSTEMMINGRESULT_FLAG_NODEFERREDTRANSLITERATION`.
+
+If you need greater control over transliteration, you can disable it completely in the IDOL configuration and apply your own rules in the stemming library.
+
+Note that stopword filtering is usually applied between transliteration and stemming; if deferred transliteration is active, stopword filtering will be performed on untransliterated terms, so ensure that any custom stoplists have any necessary accented characters present when using this feature. (This is already the case for stoplists packaged with IDOL.)
 
 #### On exit
 
